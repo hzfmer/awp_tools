@@ -4,5 +4,5 @@
 
 # Temporary directories
 gmrot*/
-__py_cache__/*
+__pycache__/*
 *bin*/
