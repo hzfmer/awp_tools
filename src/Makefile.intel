@@ -1,0 +1,9 @@
+all:
+	cc -O3 -c fd3dparam.c
+	cc -O3 -c srfdata2.c
+	cc -O3 -c irvine2.c 
+	cc -O3 -c gmrotD50.c 
+	mpicc -O3 gmrot_mpi.c -o gmrot_mpi_rhea -O3 \
+            fd3dparam.o srfdata2.o irvine2.o gmrotD50.o -DDUR -DDBRACK
+clean:
+	rm -f *.o gmrot_mpi_rhea

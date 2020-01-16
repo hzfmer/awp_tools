@@ -1,0 +1,28 @@
+DBG = 
+ODIR = ../bin_summit/
+CC = mpicc
+FORT = pgfortran
+#LIB = -L/sw/summit/xl/16.1.1-1/xlf/16.1.1/lib
+LIB =-L/autofs/nccs-svm1_sw/summit/.swci/0-core/opt/spack/20180914/linux-rhel7-ppc64le/gcc-4.8.5/pgi-18.10-w2qkfaill2olnyrfykr5a3kmwaz6pjur/linuxpower/18.10/lib/
+
+all: param awpdata xapiir peak metrics extract
+
+param:
+	$(CC) -c $(DBG) fd3dparam.c
+
+awpdata:
+	$(CC) -c $(DBG) awp_data.c -O3
+
+peak:
+	$(CC) $(LIB) $(INC) -o $(ODIR)/pgv2 pgv2.c fd3dparam.o awp_data.o xapiir.o -O3 -lpgf90 -lpgf90rtl -lpgf902 -lpgf90_rpm1_p
+
+metrics:
+	$(CC) $(LIB) $(INC) -o $(ODIR)/metrics metrics.c fd3dparam.o awp_data.o xapiir.o -O3 -lpgf90 -lpgf90rtl -lpgf902 -lpgf90_rpm1_p
+
+extract:
+	$(CC) $(DBG) -lm -DUSE_IN3D -o $(ODIR)extrts extrts.c awp_data.o  fd3dparam.o
+
+xapiir:
+	$(FORT) -c xapiir.f -O1
+clean:
+	rm -f *.o 

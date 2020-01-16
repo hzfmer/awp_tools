@@ -1,0 +1,5 @@
+*.o
+
+# Temporary directories
+gmrot*/
+__py_cache__/*

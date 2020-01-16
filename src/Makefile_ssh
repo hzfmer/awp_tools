@@ -1,0 +1,12 @@
+FFTW3_INCLUDE_OPTS=-I$(OLCF_FFTW_ROOT)/include
+FFTW3_LD_OPTS_SERIAL=-L$(OLCF_FFTW_ROOT)/lib -lfftw3
+
+orig:
+	cc $(FFTW3_INCLUDE_OPTS) \
+        -lm -o ../bin_rhea/ssh_generate ssh_generate.c \
+        $(FFTW3_LD_OPTS_SERIAL)
+
+dm:
+	cc $(FFTW3_INCLUDE_OPTS) \
+       -lm -o ../bin_rhea/ssh_generate_dm ssh_generate_dm.c \
+        $(FFTW3_LD_OPTS_SERIAL) 
