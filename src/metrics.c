@@ -22,13 +22,13 @@ int main (int argc, char *argv[] ){
    char *xfile, *yfile, *zfile;
    int nx=1, ny=1, nt=1, nz=1;
    float **x, **y, **z;
+   float *PH, *PZ, *PGV, valh, valz, val;
+   float vx, vy, vz;
+   float tmpvx, tmpvy, tmpvz;
    float *bufx, *bufy, *bufz;
-   float *vx, *vy, *vz;
-   float *tmpvx, *tmpvy, *tmpvz;
-   float *durx, *dury, *durz;
-   float *PH, *PZ, *PGV, valh, valz;
-   float *AI, *DUR;
-   MPI_File hfid, zfid, pgvfid;
+   float *DUR, durx, dury, durz;
+   float *AI, *PGA, acc;
+   MPI_File hfid, zfid, pgvfid, pgafid;
    MPI_File aifid, durfid;
    int nchunks = 8, csize;
    int rank, nprocs;
@@ -50,7 +50,8 @@ int main (int argc, char *argv[] ){
    int c;
    extern char *optarg;
 
-   char phfile[200], pzfile[200], pgvfile[200], aifile[200], durfile[200];
+   char phfile[200], pzfile[200], pgvfile[200], pgafile[200];
+   char aifile[200], durfile[200];
    int err;
  
    MPI_Init(&argc,&argv);
@@ -115,17 +116,9 @@ int main (int argc, char *argv[] ){
    PH = (float*) calloc(csize, sizeof(float));
    PZ = (float*) calloc(csize, sizeof(float));
    PGV = (float*) calloc(csize, sizeof(float));
+   PGA = (float*) calloc(csize, sizeof(float));
    AI=(float*) calloc(csize, sizeof(float));
    DUR=(float*) calloc(csize, sizeof(float));
-   vx = (float*) calloc(csize, sizeof(float));
-   vy = (float*) calloc(csize, sizeof(float));
-   vz = (float*) calloc(csize, sizeof(float));
-   tmpvx = (float*) calloc(csize, sizeof(float));
-   tmpvy = (float*) calloc(csize, sizeof(float));
-   tmpvz = (float*) calloc(csize, sizeof(float));
-   durx = (float*) calloc(csize, sizeof(float));
-   dury = (float*) calloc(csize, sizeof(float));
-   durz = (float*) calloc(csize, sizeof(float));
    fprintf(stdout, "%d: Allocating buffers...\n", rank);
    /* buffers for unsorted velocities */
    bufx = (float*) calloc(csize*nt, sizeof(float));
@@ -150,6 +143,7 @@ int main (int argc, char *argv[] ){
       sprintf(phfile, "peak_velocity_H.bin");
       sprintf(pzfile, "peak_velocity_Z.bin");
       sprintf(pgvfile, "pgv.bin");
+      sprintf(pgafile, "pga.bin");
       sprintf(aifile, "arias.bin");
       sprintf(durfile, "dur.bin");
    }
@@ -157,6 +151,7 @@ int main (int argc, char *argv[] ){
       sprintf(phfile, "peak_velocity_H_%05.2fHz.bin", hp);
       sprintf(pzfile, "peak_velocity_Z_%05.2fHz.bin", hp);
       sprintf(pgvfile, "pgv_%05.2fHz.bin", hp);
+      sprintf(pgafile, "pga_%05.2fHz.bin", hp);
       sprintf(aifile, "arias_%05.2fHz.bin", hp);
       sprintf(durfile, "dur_%05.2fHz.bin", hp);
    }
@@ -174,7 +169,11 @@ int main (int argc, char *argv[] ){
 
    err=MPI_File_open(MPI_COMM_WORLD, pgvfile, MPI_MODE_CREATE | MPI_MODE_WRONLY, 
        MPI_INFO_NULL, &pgvfid);
-   error_check(err, "MPI_File_open pzfile");
+   error_check(err, "MPI_File_open pgvfile");
+
+   err=MPI_File_open(MPI_COMM_WORLD, pgafile, MPI_MODE_CREATE | MPI_MODE_WRONLY, 
+       MPI_INFO_NULL, &pgafid);
+   error_check(err, "MPI_File_open pgafile");
 
    err=MPI_File_open(MPI_COMM_WORLD, aifile, MPI_MODE_CREATE | MPI_MODE_WRONLY, 
        MPI_INFO_NULL, &aifid);
@@ -238,44 +237,49 @@ int main (int argc, char *argv[] ){
             xapiir_(z[l], &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
          }
 
-         PH[l] = PZ[l] = PGV[l] = AI[l] = vx[l] = vy[l] = vz[l] = 0;
-         tmpvx[l] = tmpvy[l] = tmpvz[l] = 0;
-         durx[l] = dury[l] = durz[l] = 0;
+         PH[l] = PZ[l] = PGV[l] = PGA[l] = AI[l] = 0;
+         vx = vy = vz = 0;
+         tmpvx = tmpvy = tmpvz = 0;
+         durx = dury = durz = 0;
          x[l][0] = y[l][0] = z[l][0] = 0;
          for (n=1; n<nt; n++){
-             valh=sqrtf(powf(x[l][n], 2.) + powf(y[l][n], 2.));
+             valh = sqrtf(powf(x[l][n], 2.) + powf(y[l][n], 2.));
              if (PH[l] < valh) PH[l] = valh;
-             valz=fabsf(z[l][n]);
+             valz = fabsf(z[l][n]);
              if (PZ[l] < valz) PZ[l] = valz;
-             AI[l]+=powf((x[l][n] - x[l][n - 1]) / (par.dt*par.ntiskp), 2.)
-                    + powf((y[l][n] - y[l][n - 1]) / (par.dt*par.ntiskp), 2.)
-                    + powf((z[l][n] - z[l][n - 1]) / (par.dt*par.ntiskp), 2.);
-             vx[l] += powf(x[l][n], 2.);
-             vy[l] += powf(y[l][n], 2.);
-             vz[l] += powf(z[l][n], 2.);
+             val = sqrtf(powf(x[l][n], 2.) + powf(y[l][n], 2.) + powf(z[l][n], 2.));
+             if (PGV[l] < val) PGV[l] = val;
+             acc = sqrtf(powf((x[l][n] - x[l][n - 1]) / (par.dt*par.ntiskp), 2.)
+                       + powf((y[l][n] - y[l][n - 1]) / (par.dt*par.ntiskp), 2.)
+                       + powf((z[l][n] - z[l][n - 1]) / (par.dt*par.ntiskp), 2.));
+             if (PGA[l] < acc) PGA[l] = acc;
+             AI[l] += powf(acc, 2.);
+             vx += powf(x[l][n], 2.);
+             vy += powf(y[l][n], 2.);
+             vz += powf(z[l][n], 2.);
              if (rank==0 && n % 100 == 0 && l % 100 == 0) {
                fprintf(stdout, "Processing %d / %d, l: %d / %d\n", n, nt, l, csize);
              }
          }
-         if (vx[l] > 0) {
+         // Cumulative energy, define as vel**2 from 5% to 75%
+         if (vx > 0) {
              for (n=1; n<nt; n++){
-                 tmpvx[l] += powf(x[l][n], 2.);
-                 if (vx[l] * 0.75 > tmpvx[l]) {
-                     if (vx[l] * 0.05 <= tmpvx[l]) durx[l] += powf(x[l][n], 2.);
+                 tmpvx += powf(x[l][n], 2.);
+                 if (vx * 0.75 > tmpvx && vx * 0.05 <= tmpvx) {
+                     durx += 1;
                  }
-                 tmpvy[l] += powf(y[l][n], 2.);
-                 if (vy[l] * 0.75 > tmpvy[l]) {
-                     if (vy[l] * 0.05 <= tmpvy[l]) dury[l] += powf(y[l][n], 2.);
+                 tmpvy += powf(y[l][n], 2.);
+                 if (vy * 0.75 > tmpvy && vy * 0.05 <= tmpvy) {
+                     dury += 1;
                  }
-                 tmpvz[l] += powf(z[l][n], 2.);
-                 if (vz[l] * 0.75 > tmpvz[l]) {
-                     if (vz[l] * 0.05 <= tmpvz[l]) durz[l] += powf(z[l][n], 2.);
+                 tmpvz += powf(z[l][n], 2.);
+                 if (vz * 0.75 > tmpvz && vz * 0.05 <= tmpvz) {
+                     durz += 1;
                  }
              }
          }
-         AI[l] = AI[l] * PI / 2. / G / 3.;
-         DUR[l] = (durx[l] + dury[l] + durz[l] ) / 3.;
-         PGV[l] = sqrtf(powf(PH[l], 2.) + powf(PZ[l], 2.));
+         AI[l] = AI[l] * PI * par.dt * par.ntiskp / 2. / G / 3.;
+         DUR[l] = (durx + dury + durz) * par.dt * par.ntiskp / 3.;
 
       }
 
@@ -285,12 +289,14 @@ int main (int argc, char *argv[] ){
       MPI_File_write_at_all(hfid, off, PH, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
       MPI_File_write_at_all(zfid, off, PZ, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
       MPI_File_write_at_all(pgvfid, off, PGV, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
+      MPI_File_write_at_all(pgafid, off, PGA, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
       MPI_File_write_at_all(aifid, off, AI, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
       MPI_File_write_at_all(durfid, off, DUR, csize, MPI_FLOAT, MPI_STATUS_IGNORE);
    }
    MPI_File_close(&hfid); 
    MPI_File_close(&zfid); 
    MPI_File_close(&pgvfid); 
+   MPI_File_close(&pgafid); 
    MPI_File_close(&aifid); 
    MPI_File_close(&durfid); 
 
