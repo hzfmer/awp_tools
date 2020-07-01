@@ -148,12 +148,12 @@ int main (int argc, char *argv[] ){
       sprintf(durfile, "dur.bin");
    }
    else {
-      sprintf(phfile, "peak_velocity_H_%05.2fHz.bin", hp);
-      sprintf(pzfile, "peak_velocity_Z_%05.2fHz.bin", hp);
-      sprintf(pgvfile, "pgv_%05.2fHz.bin", hp);
-      sprintf(pgafile, "pga_%05.2fHz.bin", hp);
-      sprintf(aifile, "arias_%05.2fHz.bin", hp);
-      sprintf(durfile, "dur_%05.2fHz.bin", hp);
+      sprintf(phfile, "peak_velocity_H_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(pzfile, "peak_velocity_Z_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(pgvfile, "pgv_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(pgafile, "pga_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(aifile, "arias_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(durfile, "dur_%05.2f_%05.2fHz.bin", lp, hp);
    }
    MPI_Barrier(MPI_COMM_WORLD);
 

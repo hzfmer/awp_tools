@@ -36,10 +36,6 @@ int main (int argc, char *argv[]) {
    FD3D_param par;
    read_settings(&par);
    // modified by Zhifeng, 08/14/18
-   /*nx=(int) floorf( (par.nedx-par.nbgx)/par.nskpx + 1.);
-   ny=(int) floorf( (par.nedy-par.nbgy)/par.nskpy + 1.);
-   nz=(int) floorf( (par.nedz-par.nbgz)/par.nskpz + 1.);
-   nt=(int) floorf( (par.tmax/par.dt)); */
    nx=(int) floorf( (par.nedx-par.nbgx)/par.nskpx + 1);
    ny=(int) floorf( (par.nedy-par.nbgy)/par.nskpy + 1);
    nz=(int) floorf( (par.nedz-par.nbgz)/par.nskpz + 1);
