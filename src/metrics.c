@@ -30,7 +30,7 @@ int main (int argc, char *argv[] ){
    float *AI, *PGA, acc;
    MPI_File hfid, zfid, pgvfid, pgafid;
    MPI_File aifid, durfid;
-   int nchunks = 8, csize;
+   int nchunks = 6, csize;
    int rank, nprocs;
    int k, l, n;
    MPI_Offset off;
@@ -58,7 +58,7 @@ int main (int argc, char *argv[] ){
    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
-  while ((c = getopt (argc, argv, "fl:h:")) != -1) {
+  while ((c = getopt (argc, argv, "fl:h:n:")) != -1) {
      switch(c) {
         case 'f':
            dofilt = 1;
@@ -69,6 +69,9 @@ int main (int argc, char *argv[] ){
         case 'l':
            sscanf(optarg, "%f", &lp);
            break;
+        case 'n':
+           sscanf(optarg, "%d", &nchunks);
+           break;
         case '?':
            fprintf(stdout, "usage: %s [-f] [-l lp] [-h hp]\n", argv[0]);
            exit(0);
@@ -76,7 +79,7 @@ int main (int argc, char *argv[] ){
            abort();
      }
   }
-  if (rank==0) fprintf(stdout, "dofilt=%d, lp = %f, hp=%f\n", dofilt, lp, hp);
+  if (rank==0) fprintf(stdout, "dofilt=%d, lp = %f, hp=%f, nchunks=%d\n", dofilt, lp, hp, nchunks);
 
    /* determine dimensions from these parameters */
    nx=(int) floorf( (par.nedx-par.nbgx)/par.nskpx + 1.); 
@@ -119,7 +122,7 @@ int main (int argc, char *argv[] ){
    PGA = (float*) calloc(csize, sizeof(float));
    AI=(float*) calloc(csize, sizeof(float));
    DUR=(float*) calloc(csize, sizeof(float));
-   fprintf(stdout, "%d: Allocating buffers...\n", rank);
+   if (rank==0) fprintf(stdout, "%d: Allocating buffers...\n", rank);
    /* buffers for unsorted velocities */
    bufx = (float*) calloc(csize*nt, sizeof(float));
    bufy = (float*) calloc(csize*nt, sizeof(float));
@@ -130,7 +133,7 @@ int main (int argc, char *argv[] ){
    y = (float**) calloc (csize, sizeof(float*));
    z = (float**) calloc (csize, sizeof(float*));
 
-   fprintf(stdout, "%d: Allocating 2D arrays ...\n", rank);
+   if (rank==0) fprintf(stdout, "%d: Allocating 2D arrays ...\n", rank);
    for (l=0; l<csize; l++){
       x[l] = (float*) calloc(nt, sizeof(float));
       y[l] = (float*) calloc(nt, sizeof(float));
@@ -138,7 +141,7 @@ int main (int argc, char *argv[] ){
    }
    if (z[csize-1]==NULL) perror("error using calloc()");
 
-   fprintf(stdout, "%d: defining output files ...\n", rank);
+   if (rank==0) fprintf(stdout, "%d: defining output files ...\n", rank);
    if (dofilt == 0){
       sprintf(phfile, "peak_velocity_H.bin");
       sprintf(pzfile, "peak_velocity_Z.bin");
@@ -192,15 +195,18 @@ int main (int argc, char *argv[] ){
       zi=s0 / (nx*ny);
       yi=(s0 % (nx*ny)) / nx;
       xi=s0 % nx;
-      //fprintf(stdout, "(%d): s0=%d, xi=%d, yi=%d, zi=%d\n", rank, s0, xi, yi, zi);
+      if (k == 0 && rank % 10 == 0) {
+        fprintf(stdout, "(%d): s0=%d, xi=%d, yi=%d, zi=%d\n", rank, s0, xi, yi, zi);
+        fflush(stdout);
+      }
       if (par.itype == 0) {
-         if (rank==0) fprintf(stdout, "reading %s ...\n", xfile);
+         if (rank==0) fprintf(stdout, "[IVELOCITY=0] Reading %s ...\n", xfile);
          read_awp_timeseries(xfile, nx, ny, nz, xi, yi, zi, nt, 
              csize, bufx);
-         if (rank==0) fprintf(stdout, "reading %s ...\n", yfile);
+         if (rank==0) fprintf(stdout, "[IVELOCITY=0] Reading %s ...\n", yfile);
          read_awp_timeseries(yfile, nx, ny, nz, xi, yi, zi, nt, 
              csize, bufy);
-         if (rank==0) fprintf(stdout, "reading %s ...\n", zfile);
+         if (rank==0) fprintf(stdout, "[IVELOCITY=0] Reading %s ...\n", zfile);
          read_awp_timeseries(zfile, nx, ny, nz, xi, yi, zi, nt, 
              csize, bufz);
          if (rank==0) fprintf(stdout, "done reading.\n");
@@ -217,6 +223,7 @@ int main (int argc, char *argv[] ){
       MPI_Barrier(MPI_COMM_WORLD);
 
       if (rank==0) fprintf(stdout, "reshaping data ...\n");
+      fflush(stdout);
       for (n=0; n<nt; n++){
          for (l=0; l<csize; l++){
             x[l][n]=bufx[n*csize+l];
@@ -258,7 +265,7 @@ int main (int argc, char *argv[] ){
              vy += powf(y[l][n], 2.);
              vz += powf(z[l][n], 2.);
              if (rank==0 && n % 100 == 0 && l % 100 == 0) {
-               fprintf(stdout, "Processing %d / %d, l: %d / %d\n", n, nt, l, csize);
+               fprintf(stdout, "Processing output at %d / %d, l: %d / %d\n", n, nt, l, csize);
              }
          }
          // Cumulative energy, define as vel**2 from 5% to 75%
@@ -284,6 +291,7 @@ int main (int argc, char *argv[] ){
       }
 
       if (rank==0) fprintf(stdout, "writing data to disk ...\n");
+      fflush(stdout);
       MPI_Barrier(MPI_COMM_WORLD);
       off = (MPI_Offset) s0 * sizeof(float);
       MPI_File_write_at_all(hfid, off, PH, csize, MPI_FLOAT, MPI_STATUS_IGNORE);

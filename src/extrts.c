@@ -106,6 +106,7 @@ int main (int argc, char *argv[]) {
    bufz=(float*) calloc(nt2, sizeof(float));
 
    for (k=rank; k<nstat; k+=nprocs){
+      fprintf(stdout, "Processing site %d/%d\n", k, nstat);
       if (multiplexed) {
          read_awp_timeseries_multi(xfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 
             wstep, ntiskp, 1, bufx);

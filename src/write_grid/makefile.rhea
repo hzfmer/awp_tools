@@ -1,0 +1,11 @@
+# mpicc -L/ccs/compilers/gcc/rhel7-x86_64/6.2.0/lib64 -DWRITE_COORD=1 -O3 write_grid.c serial_reader.c -o write_grid
+#mpicc -L/ccs/compilers/gcc/rhel7-x86_64/6.2.0/lib64 -O3 write_grid.c serial_reader.c -o write_grid
+
+CC=mpicc
+LIB=-L/ccs/compilers/gcc/rhel7-x86_64/6.2.0/lib64
+all:
+	${CC} ${LIB} -O3 write_grid.c serial_reader.c -o ../../bin_rhea/write_grid
+
+clean:
+	rm *.o 
+	
