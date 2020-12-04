@@ -20,9 +20,20 @@ void read_awp_timeseries(char *fname, int nx, int ny, int nz, int xi, int yi, in
     MPI_Datatype filetype;
     MPI_Offset disp;
     int ierr;
+    MPI_Info info;
     //MPI_Aint extent1, extent2;
 
-    ierr=MPI_File_open(MPI_COMM_WORLD, fname, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    ierr=MPI_Info_create(&info);
+    error_check(ierr, "MPI_Info_create()");
+    /* Enable collective buffering optimization */
+    ierr=MPI_Info_set(info, "romio_cb_write", "enable");
+    error_check(ierr, "MPI_Info_set()");
+
+    #ifdef NONCOLLECTIVE
+    ierr=MPI_File_open(MPI_COMM_SELF, fname, MPI_MODE_RDONLY, info, &fh);
+    #else
+    ierr=MPI_File_open(MPI_COMM_WORLD, fname, MPI_MODE_RDONLY, info, &fh);
+    #endif
     error_check(ierr, "MPI_File_open()");
 
     ierr=MPI_Type_vector(nt, nsites, nx*ny*nz, MPI_FLOAT, &filetype);
@@ -35,17 +46,24 @@ void read_awp_timeseries(char *fname, int nx, int ny, int nz, int xi, int yi, in
     fprintf(stdout, "extent of MPI_FLOAT = %ld, extent of filetype = %ld\n", extent1, extent2);*/
 
     disp = (MPI_Offset) sizeof(float) * ((MPI_Offset) nx*ny*zi + (MPI_Offset) nx*yi + (MPI_Offset) xi);
-    if (disp==0) fprintf(stdout, "[Single] Reading %s ...\n", fname);
+    if (disp==0) fprintf(stdout, "[Single]reading %s ...\n", fname);
     ierr=MPI_File_set_view(fh, disp, MPI_FLOAT, filetype, "native", MPI_INFO_NULL);
     fprintf(stderr, "disp=%ld, %s\n", disp, fname);
     error_check(ierr, "MPI_File_set_view()");
 
+    #ifdef NONCOLLECTIVE
+    ierr=MPI_File_read(fh, buf, nt*nsites, MPI_FLOAT, MPI_STATUS_IGNORE);
+    #else
     ierr=MPI_File_read_all(fh, buf, nt*nsites, MPI_FLOAT, MPI_STATUS_IGNORE);
+    #endif
     error_check(ierr, "MPI_File_read_all()");
     MPI_File_close(&fh);
 
     ierr=MPI_Type_free(&filetype);
     error_check(ierr, "MPI_Type_free()");
+
+    ierr=MPI_Info_free(&info);
+    error_check(ierr, "MPI_Info_free()");
 }
 
 /* reads several time series from contiguous sites (multiplexed) */
@@ -58,8 +76,7 @@ void read_awp_timeseries_multi(char *fbase, int nx, int ny, int nz, int xi, int 
    nfiles = nt / wstep;
    for (k=0; k<nfiles; k++){
       sprintf(fname, "%s%07d", fbase, (k+1)*wstep*nskip);
-      if (xi == 0 && yi ==0) fprintf(stdout, "[multiplexed] Reading %s ...\n", fname);
-      fflush(stdout);
+      if (xi == 0 && yi ==0) fprintf(stdout, "[multiplexed] reading %s ...\n", fname);
       bpos=k*wstep*nsites;
       read_awp_timeseries(fname, nx, ny, nz, xi, yi, zi, wstep, nsites, buf+bpos);
    }

@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <getopt.h>
 #include <string.h>
+#include <limits.h>
 
 #define DEBUG 1
 #ifdef DEBUG
@@ -22,7 +23,9 @@
 #define MPICHK(err) {}
 #endif
 
-#define COUNT 1
+#define COUNT 0
+#define ABS(x, y) ((x) > (y)) ? (x) - (y) : (y) - (x)
+
 
 struct Mpi
 {
@@ -141,16 +144,16 @@ int main(int argc, char *argv []) {
     if (m.rank == 0) {
         fprintf(stdout, "nprocs = %d\n", m.size);
         fprintf(stdout, "nx=%d, ny=%d, nz=%d, std=%f, nz_ssh=%d, nz_tap=%d, vpmax=%f, vsmax=%f, px=%d, py=%d, nio=%d\n", nx, ny, nz, std, nz_ssh, nz_tap, vpmax, vsmax, px, py, nio);
-        fprintf(stdout, "fh_ssh=%s\n, fh_hom=%s\n, fh_het=%s\n", fh_ssh, fh_hom, fh_het);
+        fprintf(stdout, "fh_ssh=%s\nfh_hom=%s\nfh_het=%s\n", fh_ssh, fh_hom, fh_het);
         fflush(stdout);
         if (m.nxt * px != nx || m.nyt * py != ny) {
             fprintf(stderr, "Number of grid points nx/ny should be divisible by px/py.\n");
             MPI_Finalize();
             return -1;
         }
-        if ((nx / px) * (ny / py)  >= ((1 << 31) - 1) / nvar / nz) {
+        if ((nx / px) * (ny / py)  >= INT_MAX / nvar / nz) {
             fprintf(stdout, "(nx / px) * (ny / py) * nvar * nz = %d\n", (nx / px) * (ny / py) * nvar * nz);
-            fprintf(stderr, "Number of grids in each processor is larger than INT_MAX, overflow!\n");
+            fprintf(stderr, "Number of grids in each processor is larger than INT_MAX, may overflow!\n");
             MPI_Finalize();
             return -1;
         }
@@ -206,6 +209,8 @@ int main(int argc, char *argv []) {
             }
         }
 
+        if (m.rank == 0) printf("c=%d/%d, Done reading homogeneous files.\n", c, kz_ssh);
+        fflush(stdout);
         // Read homogeneous file
         err = MPI_File_read_all(fm, buf_hom, bufsize_hom, MPI_FLOAT, &filestatus);
         if (err != MPI_SUCCESS) {
@@ -213,12 +218,17 @@ int main(int argc, char *argv []) {
             printf("Rank=%d, ERROR=%d! MPI-IO reading homogeneous file, %s\n", m.rank, err, mpiErrStr);
         }
         if (m.rank == 0) printf("c=%d/%d, Done reading input files.\n", c, kz_hom);
+        fflush(stdout);
         
         float tapval = 1.0; //taper ratio
         int ind = 0;  // Be careful if index can be too large
         int i, j, k, z;
         float tmp_vp, tmp_vs, ssh;
         for (k = 0; k < readz_hom; k++) {
+            if (m.rank == 0 && k == 0) {
+                printf("Start\n");
+                fflush(stdout);
+            }
             z = c * nio + k;
             if (z >= nz_ssh) break;
             tapval = 1.0 - (z >= nz_tap ? (float)(z + 1 - nz_tap) / (nz_ssh - nz_tap) : 0);
