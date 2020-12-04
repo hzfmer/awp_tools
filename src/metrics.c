@@ -18,7 +18,7 @@
 
 int main (int argc, char *argv[] ){
    FD3D_param par;
-   read_settings(&par);
+   read_settings(&par, "IN3D.out");
    char *xfile, *yfile, *zfile;
    int nx=1, ny=1, nt=1, nz=1;
    float **x, **y, **z;

@@ -34,8 +34,7 @@ int main (int argc, char *argv[]) {
    #ifdef USE_IN3D
    int nx, ny, nz, nt, wstep, ntiskp, multiplexed;
    FD3D_param par;
-   read_settings(&par);
-   // modified by Zhifeng, 08/14/18
+   read_settings(&par, "IN3D.out");
    nx=(int) floorf( (par.nedx-par.nbgx)/par.nskpx + 1);
    ny=(int) floorf( (par.nedy-par.nbgy)/par.nskpy + 1);
    nz=(int) floorf( (par.nedz-par.nbgz)/par.nskpz + 1);
@@ -44,21 +43,19 @@ int main (int argc, char *argv[]) {
    ntiskp=par.ntiskp;
    multiplexed=par.itype;
    #endif
+   fprintf(stdout, "  >> nx=%d, ny=%d, nz=%d, nt=%d," 
+                   " ivelocity=%d, ntiskp=%d, writestep=%d\n",
+		    nx, ny, nz, nt, par.itype, par.ntiskp, par.writestep);
 
-   // char xfile[100], yfile[100], zfile[100];
+   /*char xfile[]="output_sfc/SX";
+   char yfile[]="output_sfc/SY";
+   char zfile[]="output_sfc/SZ";*/
    int rank, nprocs;
    FILE *fid;
-   int nstat, *xi, *yi, *zi;
+   int nstat, *xi, *yi, *zi, *xt, *yt, *zt;
    int nt2, k;
    float *bufx, *bufy, *bufz;
    char fnamex[200], fnamey[200], fnamez[200];
-
-   //sprintf(xfile, "%s", par.sxrgo);
-   //sprintf(yfile, "%s", par.syrgo);
-   //sprintf(zfile, "%s", par.szrgo);
-   // strcpy(xfile, par.sxrgo);
-   // strcpy(yfile, par.syrgo);
-   // strcpy(zfile, par.szrgo);
 
    char *xfile, *yfile, *zfile;
    xfile=(char*) calloc(100, sizeof(char) );
@@ -67,10 +64,11 @@ int main (int argc, char *argv[]) {
    sscanf(par.sxrgo, "%s", xfile);
    sscanf(par.syrgo, "%s", yfile);
    sscanf(par.szrgo, "%s", zfile);
-   /* this removes the remaining ' at the end of the string, if any */
+   // this removes the remaining ' at the end of the stri
    xfile=strsep(&xfile, "\'");
    yfile=strsep(&yfile, "\'");
    zfile=strsep(&zfile, "\'");
+
    MPI_Init(&argc,&argv);
    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
@@ -89,9 +87,17 @@ int main (int argc, char *argv[]) {
    xi = (int*) calloc(nstat, sizeof(int));
    yi = (int*) calloc(nstat, sizeof(int));
    zi = (int*) calloc(nstat, sizeof(int));
+   xt = (int*) calloc(nstat, sizeof(int));
+   yt = (int*) calloc(nstat, sizeof(int));
+   zt = (int*) calloc(nstat, sizeof(int));
   
    if (rank==0){
-      for (k=0; k<nstat; k++) fscanf(fid, "%d %d %d\n", xi+k, yi+k, zi+k);
+      for (k=0; k<nstat; k++) {
+        fscanf(fid, "%d %d %d\n", xi+k, yi+k, zi+k);
+        xt[k] = (xi[k] - par.nbgx) / par.nskpx;
+        yt[k] = (yi[k] - par.nbgy) / par.nskpy;
+        zt[k] = (zi[k] - par.nbgz) / par.nskpz;
+      }
       fclose(fid);
    }
         
@@ -106,19 +112,18 @@ int main (int argc, char *argv[]) {
    bufz=(float*) calloc(nt2, sizeof(float));
 
    for (k=rank; k<nstat; k+=nprocs){
-      fprintf(stdout, "Processing site %d/%d\n", k, nstat);
       if (multiplexed) {
-         read_awp_timeseries_multi(xfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 
+         read_awp_timeseries_multi(xfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 
             wstep, ntiskp, 1, bufx);
-         read_awp_timeseries_multi(yfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 
+         read_awp_timeseries_multi(yfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 
             wstep, ntiskp, 1, bufy);
-         read_awp_timeseries_multi(zfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 
+         read_awp_timeseries_multi(zfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 
             wstep, ntiskp, 1, bufz);
       }
       else {
-         read_awp_timeseries(xfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 1, bufx);
-         read_awp_timeseries(yfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 1, bufy);
-         read_awp_timeseries(zfile, nx, ny, nz, xi[k]-1, yi[k]-1, zi[k]-1, nt2, 1, bufz);
+         read_awp_timeseries(xfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 1, bufx);
+         read_awp_timeseries(yfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 1, bufy);
+         read_awp_timeseries(zfile, nx, ny, nz, xt[k], yt[k], zt[k], nt2, 1, bufz);
       }
 
       sprintf(fnamex, "%s%04d_%04d_%04d.dat", xfile, xi[k], yi[k], zi[k]);
@@ -130,6 +135,8 @@ int main (int argc, char *argv[]) {
       writeasc(fnamez, nt2, bufz);
 
    }
+   free(xi); free(yi); free(zi);
+   free(xt); free(yt); free(zt);
    MPI_Barrier(MPI_COMM_WORLD);
    MPI_Finalize();
    return(0);
