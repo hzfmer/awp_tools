@@ -17,18 +17,22 @@
 #include <stdlib.h>
 #include "gmrotD50.h"
 
-int index_above(float *in, int nt, float thres){
-   int l;
-   int idx;
-
-   idx=nt;
-   for (l=0; l<nt; l++){
-      if (in[l] > thres) {
-         idx=l;
-         break;
+int index_above(float *in, int nt, float thres)
+{
+   int l = 0, r = nt - 1;
+   while (l < r)
+   {
+      int mid = l + (r - l) / 2;
+      if (in[mid] < thres)
+      {
+         l = mid + 1;
+      }
+      else
+      {
+         r = mid;
       }
    }
-   return idx;
+   return l;
 }
 
 void ds_5_95(float *accX, float *accY, int nt, float dt, float *durX, float *durY, float *dur2c){
@@ -163,9 +167,9 @@ int main (int argc, char *argv[] ){
           dofilt, lp, hp, ftype);
 
    /* determine dimensions from these parameters */
-   nx=(int) floorf( (par.nedx-par.nbgx+1)/par.nskpx); 
-   ny=(int) floorf( (par.nedy-par.nbgy+1)/par.nskpy); 
-   nz=(int) floorf( (par.nedz-par.nbgz+1)/par.nskpz); 
+   nx = (int)floorf((par.nedx - par.nbgx) / par.nskpx + 1.);
+   ny = (int)floorf((par.nedy - par.nbgy) / par.nskpy + 1.);
+   nz = (int)floorf((par.nedz - par.nbgz) / par.nskpz + 1.);
    nt=(int) floorf( (par.tmax/par.dt/par.ntiskp));
    dt2=par.dt*par.ntiskp;
    

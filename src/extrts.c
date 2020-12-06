@@ -104,13 +104,18 @@ int main(int argc, char *argv[])
          xt[k] = (xi[k] - par.nbgx) / par.nskpx;
          yt[k] = (yi[k] - par.nbgy) / par.nskpy;
          zt[k] = (zi[k] - par.nbgz) / par.nskpz;
+         printf("Site %d: (%d %d %d)\n", k, xt[k], yt[k], zt[k]);
       }
+      fflush(stdout);
       fclose(fid);
    }
 
    MPI_Bcast(xi, nstat, MPI_INT, 0, MPI_COMM_WORLD);
    MPI_Bcast(yi, nstat, MPI_INT, 0, MPI_COMM_WORLD);
    MPI_Bcast(zi, nstat, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast(xt, nstat, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast(yt, nstat, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast(zt, nstat, MPI_INT, 0, MPI_COMM_WORLD);
 
    nt2 = nt / ntiskp;
 
