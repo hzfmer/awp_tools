@@ -62,7 +62,7 @@ void comp_cum(float *accX, float *accY, float *accZ, int nt, float dt, float low
    *ener = cumeng[nt - 1] / 3;
 }
 
-void vel2acc(float *vel, int nt, float dt, float *acc)
+void vel2acc(float *vel, int nt, float dt, float * acc)
 {
    int n;
 
@@ -250,8 +250,8 @@ int main(int argc, char *argv[])
       fprintf(stdout, "%d: defining output files ...\n", rank);
    if (dofilt == 0)
    {
-      sprintf(phfile, "peak_velocity_H.bin");
-      sprintf(pzfile, "peak_velocity_Z.bin");
+      sprintf(phfile, "pgv_H.bin");
+      sprintf(pzfile, "pgv_Z.bin");
       sprintf(pgvfile, "pgv.bin");
       sprintf(pgafile, "pga.bin");
       sprintf(aifile, "arias.bin");
@@ -260,8 +260,8 @@ int main(int argc, char *argv[])
    }
    else
    {
-      sprintf(phfile, "peak_velocity_H_%05.2f_%05.2fHz.bin", lp, hp);
-      sprintf(pzfile, "peak_velocity_Z_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(phfile, "pgv_H_%05.2f_%05.2fHz.bin", lp, hp);
+      sprintf(pzfile, "pgv_Z_%05.2f_%05.2fHz.bin", lp, hp);
       sprintf(pgvfile, "pgv_%05.2f_%05.2fHz.bin", lp, hp);
       sprintf(pgafile, "pga_%05.2f_%05.2fHz.bin", lp, hp);
       sprintf(aifile, "arias_%05.2f_%05.2fHz.bin", lp, hp);
@@ -410,6 +410,9 @@ int main(int argc, char *argv[])
             xapiir_(x[l], &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
             xapiir_(y[l], &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
             xapiir_(z[l], &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
+            xapiir_(accx, &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
+            xapiir_(accy, &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
+            xapiir_(accz, &nt, aproto, &trbndw, &a, &iord, ftype, &lp, &hp, &dt2, &npas);
          }
 
          comp_cum(x[l], y[l], z[l], nt, dt2, low, high, DUR + l, ENER + l);

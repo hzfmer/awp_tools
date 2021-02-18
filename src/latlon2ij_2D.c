@@ -4,16 +4,33 @@
 #include <math.h>
 #include <time.h>
 #include <queue>
+
+// Compile
+// g++ latlon2ij_2D.c dist_sphere.c -std=c++11 -lm -O3 -o latlon2ij_2D
+//
 using namespace std;
 
 double dist_sphere(double lat1, double lon1, double lat2, double lon2,
                    double R);
 
+
+bool check_inside(float x, float y, float x1, float y1, float axis1_x, float axis1_y, float axis2_x, float axis2_y, float len1, float len2) 
+{
+    float vector_x = x - x1;
+    float vector_y = y - y1;
+    float span1 = vector_x * axis1_x + vector_y * axis1_y;
+    float span2 = vector_x * axis2_x + vector_y * axis2_y;
+    if (0 <= span1 && span1 <= len1 )
+        if (0 <= span2 && span2 <= len2) 
+            return true;
+    return false;
+}
+
 float mindist(int npx, int npy, float **lon, float **lat, float tlon, float tlat, int &mdx, int &mdy)
 {
     float min_dist;
     float md = 1.e13;
-    float R = 6378137; /*Earth's radius im m*/
+    float R = 6378137.0;
     int d[8][2] = {{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}};
     int x_next = 0, y_next = 0;
 
@@ -50,20 +67,25 @@ float mindist(int npx, int npy, float **lon, float **lat, float tlon, float tlat
         }
         if (count == 0)
         {
+            // Found the  nearest point, since nearby points are farther
             mdx = x;
             mdy = y;
             return min_dist;
         }
         if (min_dist > 10000)
         {
-            q.push(make_pair((x_next + 37) % npx, (y_next + 41) % npy));
-            //printf("%d %d\n", (x_next + 37) % npx, (y_next + 41) % npy);
+            // Jump to test another area
+            x_next = (x_next + x_next % 103) % npx; 
+            y_next = (y_next + y_next % 97) % npy;
+            while (visited[y_next][x_next]) {
+                x_next = (x_next + x_next % 103) % npx; 
+                y_next = (y_next + y_next % 97) % npy;
+            }
+            printf("%d %d\n", x_next, y_next);
         }
-        else
-        {
-            q.push(make_pair(x_next, y_next));
-            //printf("within 10: %d %d %f\n", x_next, y_next, min_dist);
-        }
+        // Test nearby region
+        q.push(make_pair(x_next, y_next));
+        //printf("within 10: %d %d %f\n", x_next, y_next, min_dist);
     }
     return min_dist;
 }
@@ -145,6 +167,14 @@ int main(int argc, char *argv[])
     fclose(fid_grid);
     fprintf(stdout, "Last grid cell is: %f %f\n", lon[NY - 1][NX - 1], lat[NY - 1][NX - 1]);
     fprintf(stdout, " ok.\n");
+    
+    float axis1_x = lon[0][NX - 1] - lon[0][0];
+    float axis1_y = lat[0][NX - 1] - lat[0][0];
+    float axis2_x = lon[NY - 1][0] - lon[0][0];
+    float axis2_y = lat[NY - 1][0] - lat[0][0];
+    float len1 = axis1_x * axis1_x + axis1_y * axis1_y;
+    float len2 = axis2_x * axis2_x + axis2_y * axis2_y;
+    fprintf(stdout, "%f %f %f %f %f %f\n", axis1_x, axis1_y, axis2_x, axis2_y, len1, len2);
 
     // Main loop
     fid_in = fopen(stat_fname, "r");
@@ -159,14 +189,21 @@ int main(int argc, char *argv[])
         line = fscanf(fid_in, "%s %f %f\n", cname, &tlon, &tlat);
         while (line != EOF)
         {
-            md = mindist(NX, NY, lon, lat, tlon, tlat, mdx, mdy);
-            printf("\nProcessing site %d, Dist=%f\n", ++nline, md);
-            if (md > 10000)
-            {
-                fprintf(stdout, "Nearest distance: %f > 10km, probably wrong?\n", md);
+            bool inside = check_inside(tlon, tlat, lon[0][0], lat[0][0], axis1_x, axis1_y, axis2_x, axis2_y, len1, len2);
+            fprintf(stdout, "%d\n", inside);
+            if (!inside) {
+                fprintf(stdout, "\nSite %d: Probably outsite of mesh\n", ++nline);
+                fprintf(fid_out, "%s %d %d\n", cname, -1, -1);
+            } else {
+                md = mindist(NX, NY, lon, lat, tlon, tlat, mdx, mdy);
+                printf("\nProcessing site %d, Dist=%f\n", ++nline, md);
+                if (md > 1000)
+                {
+                    fprintf(stdout, "Nearest distance: %f > 1km, probably wrong?\n", md);
+                }
+                fflush(stdout);
+                fprintf(fid_out, "%s %d %d\n", cname, mdx, mdy);
             }
-            fflush(stdout);
-            fprintf(fid_out, "%s %d %d\n", cname, mdx, mdy);
             fflush(fid_out);
             line = fscanf(fid_in, "%s %f %f\n", cname, &tlon, &tlat);
         }

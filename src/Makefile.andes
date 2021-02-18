@@ -34,6 +34,9 @@ pgv_gmrot: pgv_gmrot.c fd3dparam.o awp_data.o xapiir.o irvine2.o gmrotD50.o
 metrics: metrics.c fd3dparam.o awp_data.o xapiir.o irvine2.o gmrotD50.o
 	$(CC) $(DBG) -o $(ODIR)/metrics $^ -O3 -lifcore
 
+metrics2: metrics2.c fd3dparam.o xapiir.o irvine2.o gmrotD50.o
+	$(CC) $(DBG) -o $(ODIR)/metrics2 $^ -O3 -lifcore
+
 .PHONY: clean 
 clean:
 	rm -f *.o 
