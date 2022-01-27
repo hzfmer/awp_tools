@@ -1,0 +1,8 @@
+*.o
+*.so
+*.a
+
+# Temporary directories
+gmrot*/
+__pycache__/*
+*bin*/

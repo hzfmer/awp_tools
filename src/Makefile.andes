@@ -1,0 +1,42 @@
+# use intel compilers
+#
+DBG = 
+ODIR = ../bin_andes/
+CC = mpicc
+FORT = mpif90
+
+all: peak extract pgv_gmrot metrics
+
+objects = fd3dparam.o irvine2.o gmrotD50.o
+$(objects): %.o : %.c
+	$(CC) -c $(DBG) $< -o $@
+
+xapiir.o:
+	$(FORT) -c xapiir.f -O1
+# use NONCOLLECTIVE on OLCF Alpine file system
+# do not use on lustre
+awpdata.o:
+	$(CC) -c $(DBG) -DNONCOLLECTIVE awp_data.c -O3
+
+
+peak: pgv2.c fd3dparam.o awp_data.o xapiir.o
+	$(CC) $(DBG) -o $(ODIR)/pgv2 $^ -O3 -lifcore
+
+extract: extrts.c awp_data.o  fd3dparam.o
+	$(CC) $(DBG) -DUSE_IN3D -o $(ODIR)extrts $^
+
+uplift: uplift.c fd3dparam.o awp_data.o xapiir.o
+	$(CC) $(DBG) -o $(ODIR)/uplift $^ -O3 -lifcore
+
+pgv_gmrot: pgv_gmrot.c fd3dparam.o awp_data.o xapiir.o irvine2.o gmrotD50.o
+	$(CC) $(DBG) -o $(ODIR)/pgv_gmrot $^ -O3 -lifcore
+
+metrics: metrics.c fd3dparam.o awp_data.o xapiir.o irvine2.o gmrotD50.o
+	$(CC) $(DBG) -o $(ODIR)/metrics $^ -O3 -lifcore
+
+metrics2: metrics2.c fd3dparam.o xapiir.o irvine2.o gmrotD50.o
+	$(CC) $(DBG) -o $(ODIR)/metrics2 $^ -O3 -lifcore
+
+.PHONY: clean 
+clean:
+	rm -f *.o 

@@ -1,0 +1,29 @@
+DBG = 
+ODIR = ../bin_andes/
+CC = mpicc
+FORT = pgfortran
+FORT = mpif90
+LIB=-L/sw/andes/gcc/9.3.0/lib64
+all: param awpdata xapiir peak metrics extract
+
+param:
+	$(CC) -c $(DBG) fd3dparam.c
+
+awpdata:
+	$(CC) -c $(DBG) awp_data.c -O3
+
+#peak:
+#	$(CC) $(LIB) $(INC) -o $(ODIR)/pgv2 pgv2.c fd3dparam.o awp_data.o xapiir.o -O3 -lpgf90 -lpgf90rtl -lpgf902 -lpgf90_rpm1_p
+peak:
+	$(CC) $(LIB) $(INC) -o $(ODIR)/pgv2 pgv2.c fd3dparam.o awp_data.o xapiir.o -O3 -lifcore
+
+metrics:
+	$(CC) $(LIB) $(INC) -o $(ODIR)/metrics metrics.c fd3dparam.o awp_data.o xapiir.o -O3 -lifcore
+
+extract:
+	$(CC) $(DBG) -DUSE_IN3D -o $(ODIR)extrts extrts.c awp_data.o  fd3dparam.o
+
+xapiir:
+	$(FORT) -c xapiir.f -O1
+clean:
+	rm -f *.o 

@@ -1,0 +1,10 @@
+CC=mpicc
+all:
+	${CC} -O3 -c fd3dparam.c
+	${CC} -O3 -c srfdata2.c
+	${CC} -O3 -c irvine2.c 
+	${CC} -O3 -c gmrotD50.c 
+	${CC} -O3 gmrot_mpi.c -lm -o ../bin_summit/gmrot_mpi -O3 \
+            fd3dparam.o srfdata2.o irvine2.o gmrotD50.o 
+clean:
+	rm -f *.o gmrot_mpi
